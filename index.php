@@ -53,6 +53,7 @@ $capabilityCount = "select count(capability) as total, domain.description from c
 $capabilityCountTotal = pg_query($capabilityCount) or die('Error message: ' . pg_last_error());
 $capabilityRow = pg_fetch_assoc($capabilityCountTotal);
 $totalCapabilities = $capabilityRow['total'];
+if ($totalCapabilities != "") {
 $capabilityName = $capabilityRow['description'];
 $greenCount = "select count(flag_id) as totalgreen from capability where domain_id = '" . $domainId . "' and flag_id = '2'";
 $greenTotal = pg_query($greenCount) or die('Error message: ' . pg_last_error());
@@ -67,7 +68,9 @@ print "<img src=images/aperture-red-closed.png title='" . round($percentComplete
 } else {
 print "<img src=images/aperture-green.png title='" . round($percentComplete) . "% Compliant'>";
 }
-
+} else {
+print "<img src=images/aperture-red-closed.png>";
+}
 }
 function putIcon($colour, $capability) {
 if ($colour == 'green') {
@@ -115,10 +118,10 @@ if ($row['flag'] == "green") {
 
 ## Check if there is an integration for the capability
 $integrationQuery = "select count(*) as total from integrations where capability_id = '" . $row['id'] . "'";
-#print $integrationQuery;
+
 $integrationResult = pg_query($integrationQuery) or die('Error message: ' . pg_last_error());
 $intCount = pg_fetch_assoc($integrationResult);
-#$intCount['total'];
+
 if ($intCount['total'] > 0) {
 $toggleClass = "toggle-capability-integration";
 } else {
@@ -179,6 +182,12 @@ $i++;
   <!-- Tab 3 -->
   <input type="radio" name="tabset" id="tab4" aria-controls="methods">
   <label for="tab4">Integration Methods</label>
+
+  <input type="radio" name="tabset" id="tab5" aria-controls="domains">
+  <label for="tab5">Domains</label>
+
+  <input type="radio" name="tabset" id="tab6" aria-controls="capabilities">
+  <label for="tab6">Capabilities</label>
 
 
 <!-- Start of Toggle -->  
@@ -313,6 +322,18 @@ print "</div></div></div>";
         </div>
       </th>      
 
+<th class="pf-c-table__sort pf-m-help " role="columnheader" aria-sort="none" scope="col">
+        <div class="pf-c-table__column-help">
+          <button class="pf-c-table__button">
+            <div class="pf-c-table__button-content">
+              <span class="pf-c-table__text">Delete Integration<br></span>
+            </div>
+          </button>
+          <span class="pf-c-table__column-help-action">
+          </span>
+        </div>
+      </th>
+
  <th class="pf-c-table__sort pf-m-help " role="columnheader" aria-sort="none" scope="col">
         <div class="pf-c-table__column-help">
           <button class="pf-c-table__button">
@@ -328,7 +349,8 @@ print "</div></div></div>";
   </thead>
   <tbody role="rowgroup">
 <?php
-$qq = "SELECT capability.description as capability , integrations.integration_name as integration, integrations.last_update as updated, success_criteria from capability,integrations WHERE integrations.capability_id = capability.id";
+$qq = "SELECT integrations.integration_id, capability.description as capability , integrations.integration_name as integration, integrations.last_update as updated, success_criteria from capability,integrations WHERE integrations.capability_id = capability.id";
+#print $qq;
 $result = pg_query($qq) or die('Error message: ' . pg_last_error());
 
 ## Add to table
@@ -342,6 +364,7 @@ print '
       <td role="cell" data-label="Integration">' . $row['integration'] . '</td>
       <td role="cell" data-label="Success Criteria">' . $row['success_criteria'] . '</td>
       <td role="cell" data-label="updated">' . $row['updated'] . '</td>
+      <td role="cell" data-label="deleteIntegration"> <a aria-label="Delete" href="delete.php?id=' . $row['integration_id'] . '&table=integrations&idColumn=integration_id" class="confirmation"> <i class="fa fa-trash"></i></a> </td>
     </tr>
 ';
 }
@@ -414,8 +437,6 @@ print '
 <option value="' . $row['id'] . '">' . $row['integration_method_name'] . '</option>
 ';		
 }
-
-    
       ?>
 
      </select>
@@ -502,17 +523,25 @@ print '
           </div>
         </button>
       </th>     
+      <th class="pf-c-table__sort pf-m-selected " role="columnheader" aria-sort="ascending" scope="col">
+        <button class="pf-c-table__button">
+          <div class="pf-c-table__button-content">
+            <span class="pf-c-table__text">Delete Integration Method</span>
+          </div>
+        </button>
+      </th>     
     </tr>
-  </thead>
+      </thead>
   <tbody role="rowgroup">
 <?php
-$qq = "select integration_method_name from integration_methods";
+$qq = "select integration_method_name, id from integration_methods";
 $result = pg_query($qq) or die('Error message: ' . pg_last_error());
 
 while ($row = pg_fetch_assoc($result)) {
 print '
     <tr role="row">
       <td role="cell" data-label="method">' . $row['integration_method_name'] . '</td>
+      <td role="cell" data-label="deleteIntegrationMethod"> <a aria-label="Delete" href="delete.php?id=' . $row['id'] . '&table=integration_methods&idColumn=id" class="confirmation"> <i class="fa fa-trash"></i></a> </td>
     </tr>
 ';
 }
@@ -543,22 +572,162 @@ print '
   <!--  End of Add Integrations Methods -->  
  </section>
 
+<!--  Start of Domains -->  
+    <section id="domains" class="tab-panel">
+<div class="pf-l-grid pf-m-gutter">
+  <div class="pf-l-grid__item pf-m-6-col">
+<p class="pf-c-title pf-m-2xl">Domains</p>
+<p class="pf-c-title pf-m-md"><span class="red">WARNING</span> - Deleting a domain will also delete all child capabilities</p>
+<table class="pf-c-table pf-m-compact pf-m-grid-md" role="grid" id="table-sortable">
+  <thead>
+    <tr role="row">
+      <th class="pf-c-table__sort pf-m-selected " role="columnheader" aria-sort="ascending" scope="col">
+        <button class="pf-c-table__button">
+          <div class="pf-c-table__button-content">
+            <span class="pf-c-table__text">Domain</span>
+          </div>
+        </button>
+      </th>     
+      <th class="pf-c-table__sort pf-m-selected " role="columnheader" aria-sort="ascending" scope="col">
+        <button class="pf-c-table__button">
+          <div class="pf-c-table__button-content">
+            <span class="pf-c-table__text">Delete Domain</span>
+          </div>
+        </button>
+      </th>     
+    </tr>
+      </thead>
+  <tbody role="rowgroup">
+<?php
+$qq = "select description,id from domain order by description";
+$result = pg_query($qq) or die('Error message: ' . pg_last_error());
+
+while ($row = pg_fetch_assoc($result)) {
+print '
+    <tr role="row">
+      <td role="cell" data-label="method">' . $row['description'] . '</td>
+      <td role="cell" data-label="deleteDomain"> <a aria-label="Delete" href="delete.php?id=' . $row['id'] . '&table=domain&idColumn=id" class="confirmation"> <i class="fa fa-trash"></i></a> </td>
+    </tr>
+';
+}
+?>
+  </tbody>
+</table>
+<br>
+<p id="integrations" class="pf-c-title pf-m-2l">Add Domain</p>
+<form  class="pf-c-form" action="addDomain.php">
+  <div class="pf-c-form__group">
+    <div class="pf-c-form__group-label">
+      <label class="pf-c-form__label" for="horizontal-form-name">
+        <span class="pf-c-form__label-text">Domain Name</span>
+        <span class="pf-c-form__label-required" aria-hidden="true">&#42;</span>
+      </label>
+    </div>
+    <div class="pf-c-form__group-control">
+      <input class="pf-c-form-control" required type="text" id="domain" name="domain" aria-describedby="horizontal-form-name-helper2" />
+    </div>
+  </div>
+     <div class="pf-c-form__group">
+    <div class="pf-c-form__actions">
+      <button class="pf-c-button pf-m-primary" type="submit">Add Domain</button>
+    </div>
+  </div>  
+  </form>
+  </div>
+  </div>
+</section>
+<!--  End of Domains -->  
+
+<!--  Start of Capabilities -->  
+<section id="capabilities" class="tab-panel">
+<div class="pf-l-grid pf-m-gutter">
+  <div class="pf-l-grid__item pf-m-6-col">
+<p class="pf-c-title pf-m-2xl">Capabilities</p>
+<table class="pf-c-table pf-m-compact pf-m-grid-md" role="grid" id="table-sortable">
+  <thead>
+    <tr role="row">
+      <th class="pf-c-table__sort pf-m-selected " role="columnheader" aria-sort="ascending" scope="col">
+        <button class="pf-c-table__button">
+          <div class="pf-c-table__button-content">
+            <span class="pf-c-table__text">Capability</span>
+          </div>
+        </button>
+      </th>     
+      <th class="pf-c-table__sort pf-m-selected " role="columnheader" aria-sort="ascending" scope="col">
+        <button class="pf-c-table__button">
+          <div class="pf-c-table__button-content">
+            <span class="pf-c-table__text">Delete Capability</span>
+          </div>
+        </button>
+      </th>     
+    </tr>
+      </thead>
+  <tbody role="rowgroup">
+<?php
+$qq = "select capability.description as capability,capability.id as capabilityid,capability.domain_id,domain.description as domain from capability, domain WHERE domain.id = capability.domain_id order by domain";
+$result = pg_query($qq) or die('Error message: ' . pg_last_error());
+
+while ($row = pg_fetch_assoc($result)) {
+print '
+    <tr role="row">
+      <td role="cell" data-label="method">(' . $row['domain'] . ') ' . $row['capability'] . '</td>
+      <td role="cell" data-label="deleteCapability"> <a aria-label="Delete" href="delete.php?id=' . $row['capabilityid'] . '&table=capability&idColumn=id" class="confirmation"> <i class="fa fa-trash"></i></a> </td>
+    </tr>
+';
+}
+?>
+  </tbody>
+</table>  
+</div>
+
+<div class="pf-l-grid__item pf-m-6-col">
+<p id="capabilities" class="pf-c-title pf-m-2l">Add Capability</p>
+<form  class="pf-c-form" action="addCapability.php">
+  <div class="pf-c-form__group">
+    <div class="pf-c-form__group-label">
+      <label class="pf-c-form__label" for="horizontal-form-name">
+        <span class="pf-c-form__label-text">Capability Name</span>
+        <span class="pf-c-form__label-required" aria-hidden="true">&#42;</span>
+      </label>
+    </div>
+    <div class="pf-c-form__group-control">
+      <input class="pf-c-form-control" required type="text" id="capability" name="capability" aria-describedby="horizontal-form-name-helper2" />
+    </div>
+  </div>
+  <div class="pf-c-form__group-control">
+  <label class="pf-c-form__label" for="horizontal-form-name">
+        <span class="pf-c-form__label-text">Select Domain</span>
+      </label>
+      <select class="pf-c-form-control" id="domainId" name="domainId">
+      <?php
+      $qq = "select description,id from domain order by description;";
+$result = pg_query($qq) or die('Error message: ' . pg_last_error());
+while ($row = pg_fetch_assoc($result)) {
+$str = $row['description'];
+print '
+<option value="' . $row['id'] . '">' . $str . '</option>
+';		
+}
+      ?>
+     </select>
+    </div>
+     <div class="pf-c-form__group">
+    <div class="pf-c-form__actions">
+      <button class="pf-c-button pf-m-primary" type="submit">Add Capability</button>
+    </div>
+  </div>  
+  
+  </form>
+
+  </div>
+</div>
+</div>
+
+</section>
+  <!--  End of Capabilities -->  
 
    
 </div>
-</div>
-
-
-      
-
-
-
-
-
-
-
-
-
     </section>
 
   </main>
@@ -587,6 +756,16 @@ print '
       });
     //-->
     </script>
+    
+<script type="text/javascript">
+    var elems = document.getElementsByClassName('confirmation');
+    var confirmIt = function (e) {
+        if (!confirm('Are you sure you want to delete this entry ?')) e.preventDefault();
+    };
+    for (var i = 0, l = elems.length; i < l; i++) {
+        elems[i].addEventListener('click', confirmIt, false);
+    }
+</script>    
 <script type="text/javascript" >
 $("form").submit(function () {
 
