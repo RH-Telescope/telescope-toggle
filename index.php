@@ -21,133 +21,7 @@ $pg_user = getenv('PG_USER');
 $pg_passwd = getenv('PG_PASSWORD');
 
 $db_connection = pg_connect("host=$pg_host port=5432  dbname=$pg_db user=$pg_user password=$pg_passwd");
-
-
-function putToggles($domain) {
-$qq = "SELECT capability.id as id, capability.description as capability, flag.description as flag from capability,flag where domain_id = $domain and capability.flag_id = flag.id ORDER BY capability;";
-$result = pg_query($qq) or die('Error message: ' . pg_last_error());
-while ($row = pg_fetch_assoc($result)) {
-if ($row['flag'] == "green") {
-	$checked = "checked";
-} else {
-	$checked = "";
-}
-
-print '          	<li class="toggle-label"> 
-<label class="pf-c-switch" for="' . $row['id'] . '">
-  <input class="pf-c-switch__input" type="checkbox" name="capability-' . $row['id'] . '" id="' . $row['id'] . '" aria-labelledby="' . $row['id'] . '-on" ' . $checked . ' />
-  <span class="pf-c-switch__toggle">
-    <span class="pf-c-switch__toggle-icon">
-      <i class="fas fa-check" aria-hidden="true"></i>
-    </span>
-  </span>
-  <p class="toggle-capability">' . $row['capability'] . '</p>
-  </li>
-</label>';
-}
-}
-
-function putAperture($domainId) {
-# Get total number of capabilities
-$capabilityCount = "select count(capability) as total, domain.description from capability,domain where domain.id = capability.domain_id and domain.id ='" . $domainId . "' group by domain.description;";
-$capabilityCountTotal = pg_query($capabilityCount) or die('Error message: ' . pg_last_error());
-$capabilityRow = pg_fetch_assoc($capabilityCountTotal);
-$totalCapabilities = $capabilityRow['total'];
-if ($totalCapabilities != "") {
-$capabilityName = $capabilityRow['description'];
-$greenCount = "select count(flag_id) as totalgreen from capability where domain_id = '" . $domainId . "' and flag_id = '2'";
-$greenTotal = pg_query($greenCount) or die('Error message: ' . pg_last_error());
-$greens = pg_fetch_assoc($greenTotal);
-$totalGreens = $greens['totalgreen'];
-
-$percentComplete = ($totalGreens / $totalCapabilities) * 100;
-
-# If greens < total, add red aperture
-if ($totalGreens < $totalCapabilities) {
-print "<img src=images/aperture-red-closed.png title='" . round($percentComplete) . "% Compliant'>";
-} else {
-print "<img src=images/aperture-green.png title='" . round($percentComplete) . "% Compliant'>";
-}
-} else {
-print "<img src=images/aperture-red-closed.png>";
-}
-}
-function putIcon($colour, $capability) {
-if ($colour == 'green') {
-print '
-<span class="pf-c-icon pf-m-inline">
-  <span class="pf-c-icon__content  pf-m-success">
-    <i class="fas fa-check-circle" aria-hidden="true"></i>
-  </span>
-</span>&nbsp;' . $capability . "<br><br>";
-} else {
-print '
-<span class="pf-c-icon pf-m-inline">
-  <span class="pf-c-icon__content pf-m-danger">
-    <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
-  </span>
-</span>&nbsp;' . $capability . "<br><br>";
-}
-}
-
-
-function putToggleItems() {
-$selectDomains = "select * from domain ORDER by description;";
-$domainResults = pg_query($selectDomains) or die('Error message: ' . pg_last_error());
-$i = 1; 
-while ($row = pg_fetch_assoc($domainResults)) {
-print '
-<div class="pf-c-card pf-m-selectable-raised pf-m-rounded" id="card-' . $i . '">
-          <div class="pf-c-card__title">
-            <p id="card-' . $i . '-check-label">' . $row["description"] . '</p>
-            <div class="pf-c-content">
-              <small>Key Capabilities</small>
-            </div>
-          </div>
-          <div class="pf-c-card__body">
-          <div class="pf-c-content">
-          ';
-$qq = "select capability.id as id, capability.description as capability, flag.description as flag from capability,flag where domain_id = '" . $row['id'] . "' and capability.flag_id = flag.id ORDER by capability;";
-$result = pg_query($qq) or die('Error message: ' . pg_last_error());
-while ($row = pg_fetch_assoc($result)) {
-if ($row['flag'] == "green") {
-	$checked = "checked";
-} else {
-	$checked = "";
-}
-
-## Check if there is an integration for the capability
-$integrationQuery = "select count(*) as total from integrations where capability_id = '" . $row['id'] . "'";
-
-$integrationResult = pg_query($integrationQuery) or die('Error message: ' . pg_last_error());
-$intCount = pg_fetch_assoc($integrationResult);
-
-if ($intCount['total'] > 0) {
-$toggleClass = "toggle-capability-integration";
-} else {
-$toggleClass = "toggle-capability";
-}
-
-print '          	<div class="toggle-label"> 
-<label class="pf-c-switch" for="' . $row['id'] . '">
-  <input class="pf-c-switch__input" type="checkbox" name="capability-' . $row['id'] . '" id="' . $row['id'] . '" aria-labelledby="' . $row['id'] . '-on" ' . $checked . ' />
-  <span class="pf-c-switch__toggle">
-    <span class="pf-c-switch__toggle-icon">
-      <i class="fas fa-check" aria-hidden="true"></i>
-    </span>
-  </span>
-  <p class="' . $toggleClass . '">' . $row['capability'] . '</p>
-  </div>
-</label>';
-}          
-print '          	         	
-         </div>
-          </div>
-        </div>';	
-$i++;        
-}
-
-}
+include 'functions.php';
 
 ?>    
     
@@ -237,12 +111,7 @@ print "</div></div></div>";
  </section>
   <!--  End of Dashboard -->  
 
-
-
-
     <!-- Start of Toggle -->
-    
-    
     
     <section id="toggle" class="tab-panel">
 
@@ -490,15 +359,7 @@ print '
       <input class="pf-c-form-control" type="text" id="success-criteria" name="success-criteria" required/>
     </div>
   </div> 
-  
-<!--   <div class="pf-c-form__group">
-    <div class="pf-c-form__group-control">
-      <div class="pf-c-check">
-        <input class="pf-c-check__input" type="checkbox" type="checkbox" id="alt-form-checkbox1" name="alt-form-checkbox1" />
-        <label class="pf-c-check__label" for="alt-form-checkbox1">Follow up via email</label>
-      </div>
-    </div>
-  </div> -->
+
    <div class="pf-c-form__group pf-m-action">
     <div class="pf-c-form__actions">
       <button class="pf-c-button pf-m-primary" type="submit">Add Integration</button>
@@ -643,41 +504,46 @@ print '
 <div class="pf-l-grid pf-m-gutter">
   <div class="pf-l-grid__item pf-m-6-col">
 <p class="pf-c-title pf-m-2xl">Capabilities</p>
-<table class="pf-c-table pf-m-compact pf-m-grid-md" role="grid" id="table-sortable">
-  <thead>
-    <tr role="row">
-      <th class="pf-c-table__sort pf-m-selected " role="columnheader" aria-sort="ascending" scope="col">
-        <button class="pf-c-table__button">
-          <div class="pf-c-table__button-content">
-            <span class="pf-c-table__text">Capability</span>
-          </div>
-        </button>
-      </th>     
-      <th class="pf-c-table__sort pf-m-selected " role="columnheader" aria-sort="ascending" scope="col">
-        <button class="pf-c-table__button">
-          <div class="pf-c-table__button-content">
-            <span class="pf-c-table__text">Delete Capability</span>
-          </div>
-        </button>
-      </th>     
-    </tr>
-      </thead>
-  <tbody role="rowgroup">
+<p class="pf-c-title pf-m-md">Use the tree structure below to view and delete capabilities</p>
+<p><i>Note: You can't delete capabilities which have active integrations</i></p>
+<br>
+
 <?php
-$qq = "select capability.description as capability,capability.id as capabilityid,capability.domain_id,domain.description as domain from capability, domain WHERE domain.id = capability.domain_id order by domain";
+#$qq = "select capability.description as capability,capability.id as capabilityid,capability.domain_id,domain.description as domain from capability, domain WHERE domain.id = capability.domain_id order by domain";
+$qq = "select description from domain order by description";
 $result = pg_query($qq) or die('Error message: ' . pg_last_error());
 
 while ($row = pg_fetch_assoc($result)) {
 print '
-    <tr role="row">
-      <td role="cell" data-label="method">(' . $row['domain'] . ') ' . $row['capability'] . '</td>
-      <td role="cell" data-label="deleteCapability"> <a aria-label="Delete" href="delete.php?id=' . $row['capabilityid'] . '&table=capability&idColumn=id" class="confirmation"> <i class="fa fa-trash"></i></a> </td>
-    </tr>
-';
+<details class="details">
+      <summary class="summary">' . $row['description'] . '</summary>
+      <ul>';
+$qq2 = "select capability.description as capability,capability.id as capabilityid,capability.domain_id,domain.description as domain from capability, domain WHERE domain.id = capability.domain_id and domain.description =  '" . $row['description'] . "' order by domain";      
+
+$result2 = pg_query($qq2) or die('Error message: ' . pg_last_error());
+
+while ($row2 = pg_fetch_assoc($result2)) {
+
+## Check if there is an integration for the capability
+$integrationQuery = "select count(*) as total from integrations where capability_id = '" . $row2['capabilityid'] . "'";
+
+$integrationResult = pg_query($integrationQuery) or die('Error message: ' . pg_last_error());
+$intCount = pg_fetch_assoc($integrationResult);
+
+if ($intCount['total'] > 0) {
+print '<li><span role="cell" data-label="deleteCapability"><i class="fa fa-times"></i></span>&nbsp;&nbsp' . $row2['capability'] . '</li>';
+#$toggleClass = "toggle-capability-integration";
+} else {
+print '<li><span role="cell" data-label="deleteCapability"> <a aria-label="Delete" href="delete.php?id=' . $row2['capabilityid'] . '&table=capability&idColumn=id" class="confirmation"> <i class="fa fa-trash"></i></a></span>&nbsp;&nbsp' . $row2['capability'] . '</li>';
+#$toggleClass = "toggle-capability";
+}	
+	
+   }
+   print "</ul></details>";
 }
 ?>
-  </tbody>
-</table>  
+
+
 </div>
 
 <div class="pf-l-grid__item pf-m-6-col">
@@ -733,30 +599,8 @@ print '
   </main>
 </div>   
 
-    <!-- jQuery -->
-    <script type="text/javascript" src="/node_modules/jquery/dist/jquery.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
   <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.js"></script>
-
-
-    <!-- Bootstrap -->
-    <script type="text/javascript" src="/node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- SlimScroll -->
-    <script type="text/javascript" src="/node_modules/jquery-slimscroll/jquery.slimscroll.min.js"></script>
-
-    <!-- Custom Javascript -->
-    <script type="text/javascript">
-    <!--
-      jQuery(document).ready(function() {
-        jQuery('.pf-c-page__sidebar-body').slimScroll({
-          height: '100%',
-          width: 'var(--pf-c-page__sidebar--Width)',
-        });
-      });
-    //-->
-    </script>
-    
 <script type="text/javascript">
     var elems = document.getElementsByClassName('confirmation');
     var confirmIt = function (e) {
